@@ -8,6 +8,16 @@ from openzeppelin.access.ownable import Ownable
 from openzeppelin.introspection.ERC165 import ERC165
 from openzeppelin.token.erc721.library import ERC721
 
+
+@storage_var
+func counter() -> (res: felt) {
+}
+
+@storage_var
+func ogOwner(tokenId: Uint256) -> (res: felt) {
+}
+
+
 //
 // Constructor
 //
@@ -18,6 +28,7 @@ func constructor{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr
 ) {
     ERC721.initializer(name, symbol);
     Ownable.initializer(owner);
+    counter.write(0);
     return ();
 }
 
@@ -128,10 +139,12 @@ func safeTransferFrom{pedersen_ptr: HashBuiltin*, syscall_ptr: felt*, range_chec
 }
 
 @external
-func mint{pedersen_ptr: HashBuiltin*, syscall_ptr: felt*, range_check_ptr}(to: felt, new_token_id: Uint256) {
+func mint{pedersen_ptr: HashBuiltin*, syscall_ptr: felt*, range_check_ptr}(to: felt) {
     Ownable.assert_only_owner();
-
-    ERC721._mint(to, new_token_id);
+    let (new_token_id) = counter.read();
+    ERC721._mint(to, Uint256(new_token_id,0));
+    counter.write(new_token_id+1);
+    ogOwner.write(Uint256(new_token_id,0), to);
     return ();
 }
 
@@ -163,4 +176,20 @@ func transferOwnership{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_che
 func renounceOwnership{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() {
     Ownable.renounce_ownership();
     return ();
+}
+
+@view
+func getCounter{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() -> (
+    counterId: Uint256
+) {
+   let (tokenId) = counter.read();
+    return (counterId=Uint256(tokenId,0));
+}
+
+@view
+func getOriginalOwner{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(tokenId: Uint256) -> (
+    originalOwner: felt
+) {
+    let (storageOriginalOwner) = ogOwner.read(tokenId);
+    return (originalOwner=storageOriginalOwner);
 }
